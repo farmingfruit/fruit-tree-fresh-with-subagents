@@ -1,0 +1,333 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles for elderly-friendly design */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    font-size: 16px; /* Elderly-friendly minimum font size */
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* High contrast focus indicators */
+  *:focus {
+    outline: 3px solid theme('colors.primary.600');
+    outline-offset: 2px;
+  }
+  
+  /* Disable motion for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Custom components for church-specific needs */
+@layer components {
+  /* Button base styles with large touch targets */
+  .btn-touch {
+    @apply min-h-touch min-w-button px-6 py-4 text-lg font-medium rounded-xl transition-all transform active:scale-95;
+  }
+  
+  /* Form input styles for elderly users */
+  .input-elderly {
+    @apply text-lg px-5 py-4 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-primary-100 focus:border-primary-600;
+  }
+  
+  /* Card styles with soft shadows */
+  .card-church {
+    @apply bg-white rounded-xl shadow-soft hover:shadow-medium transition-shadow border border-gray-100;
+  }
+  
+  /* Navigation items with generous spacing */
+  .nav-item-church {
+    @apply px-6 py-4 text-lg font-medium rounded-xl transition-all hover:bg-gray-100 flex items-center min-h-[48px];
+  }
+  
+  /* Professional navigation bar styling */
+  .nav-professional {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 2px solid #e2e8f0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Premium button styling */
+  .btn-premium {
+    background: linear-gradient(135deg, theme('colors.primary.600') 0%, theme('colors.primary.700') 100%);
+    box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .btn-premium:hover {
+    background: linear-gradient(135deg, theme('colors.primary.700') 0%, theme('colors.primary.800') 100%);
+    box-shadow: 0 6px 20px 0 rgba(37, 99, 235, 0.4);
+    transform: translateY(-1px);
+  }
+  
+  /* Premium logo styling */
+  .logo-premium {
+    background: linear-gradient(135deg, theme('colors.primary.600') 0%, theme('colors.primary.700') 100%);
+    box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.25);
+  }
+  
+  /* Church administrator text styling */
+  .admin-text-premium {
+    background: linear-gradient(135deg, theme('colors.primary.600') 0%, theme('colors.primary.700') 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
+  }
+  
+  /* Responsive navigation enhancements */
+  .nav-responsive-container {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .nav-item-responsive {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .nav-item-responsive:focus-visible {
+    outline: 3px solid theme('colors.primary.600');
+    outline-offset: 2px;
+    box-shadow: 0 0 0 1px white, 0 0 0 5px theme('colors.primary.600');
+  }
+  
+  /* Church name text truncation with smooth transitions */
+  .church-name-display {
+    transition: opacity 0.2s ease-in-out;
+    will-change: opacity;
+  }
+  
+  /* More dropdown smooth animations */
+  .more-dropdown-enter {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  
+  .more-dropdown-enter-active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Elderly-friendly hover effects */
+  .nav-hover-elderly {
+    transition: all 0.3s ease;
+  }
+  
+  .nav-hover-elderly:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .nav-item-responsive {
+      border-width: 3px;
+    }
+    
+    .nav-item-responsive:focus {
+      outline-width: 4px;
+    }
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  
+  /* Show sr-only content when focused */
+  .sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 8px 12px;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background: theme('colors.primary.600');
+    color: white;
+    border-radius: 6px;
+    z-index: 1000;
+  }
+  
+  /* Skip links for accessibility */
+  .skip-link {
+    @apply absolute top-0 left-0 bg-primary-600 text-white px-4 py-2 rounded-br-lg transform -translate-y-full focus:translate-y-0 transition-transform z-50;
+  }
+  
+  /* Enhanced skip link for elderly users */
+  .skip-link:focus {
+    font-size: 18px;
+    font-weight: 600;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Utility classes for church management needs */
+@layer utilities {
+  /* Text size utilities for elderly users */
+  .text-elderly-sm { font-size: 15px; line-height: 1.5; }
+  .text-elderly-base { font-size: 16px; line-height: 1.5; }
+  .text-elderly-lg { font-size: 18px; line-height: 1.4; }
+  .text-elderly-xl { font-size: 20px; line-height: 1.4; }
+  
+  /* High contrast utilities */
+  .contrast-high {
+    filter: contrast(1.2);
+  }
+  
+  /* Touch-friendly spacing */
+  .touch-spacing > * + * {
+    margin-top: 1rem;
+  }
+  
+  /* Dynamic navigation utilities */
+  .nav-hidden {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .nav-visible {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Responsive breakpoint utilities */
+  .nav-wide-only {
+    display: block;
+  }
+  
+  .nav-medium-hide {
+    display: block;
+  }
+  
+  .nav-narrow-hide {
+    display: block;
+  }
+  
+  @media (max-width: 1399px) {
+    .nav-wide-only {
+      display: none;
+    }
+  }
+  
+  @media (max-width: 1199px) {
+    .nav-medium-hide {
+      display: none;
+    }
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-narrow-hide {
+      display: none;
+    }
+  }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-slideDown {
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  /* Safe area utilities for mobile devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Print styles for church documents */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+    color: black;
+    background: white;
+  }
+  
+  .card-church {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
+
+/* Keyframes for animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

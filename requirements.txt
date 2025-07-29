@@ -1,0 +1,65 @@
+# Church Management Platform Authentication System Requirements
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# Authentication & Security
+bcrypt==4.1.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==41.0.8
+
+# Email & Phone Validation
+email-validator==2.1.0
+phonenumbers==8.13.26
+
+# HTTP & API
+httpx==0.25.2
+requests==2.31.0
+
+# Data Processing
+pydantic==2.5.2
+python-dotenv==1.0.0
+
+# Date/Time
+python-dateutil==2.8.2
+
+# Logging & Monitoring
+structlog==23.2.0
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Email Services (choose one)
+sendgrid==6.10.0
+# mailgun==0.1.1
+# ses-boto3==0.0.1
+
+# SMS Services (choose one)
+twilio==8.10.2
+# nexmo==2.5.2
+
+# Additional Security
+python-csrf==1.0.1
+slowapi==0.1.9  # Rate limiting
+
+# Utilities
+click==8.1.7
+pyyaml==6.0.1
+jinja2==3.1.2
+
+# Production
+gunicorn==21.2.0
+redis==5.0.1  # For session storage in production
