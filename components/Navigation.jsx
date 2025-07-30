@@ -10,6 +10,15 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Navigation = ({ currentView, onNavigate, user }) => {
+  // Define navItems first
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: HomeIcon },
+    { id: 'members', label: 'Members', icon: UserGroupIcon },
+    { id: 'giving', label: 'Giving', icon: CurrencyDollarIcon },
+    { id: 'events', label: 'Events', icon: CalendarIcon },
+    { id: 'reports', label: 'Reports', icon: ChartBarIcon },
+  ];
+
   // Refs for measurement
   const containerRef = useRef(null);
   const logoAreaRef = useRef(null);
@@ -28,13 +37,12 @@ const Navigation = ({ currentView, onNavigate, user }) => {
     overflowItems: []
   });
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: HomeIcon },
-    { id: 'members', label: 'Members', icon: UserGroupIcon },
-    { id: 'giving', label: 'Giving', icon: CurrencyDollarIcon },
-    { id: 'events', label: 'Events', icon: CalendarIcon },
-    { id: 'reports', label: 'Reports', icon: ChartBarIcon },
-  ];
+  // State for More dropdown
+  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+  const [visibleItems, setVisibleItems] = useState(navItems.map(item => item.id));
+  const [hiddenItems, setHiddenItems] = useState([]);
+  const moreButtonRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Measurement function
   const measureNavigation = () => {
@@ -64,24 +72,54 @@ const Navigation = ({ currentView, onNavigate, user }) => {
       }
     });
 
+    // Measure More button width (estimate if not rendered yet)
+    const moreButtonWidth = moreButtonRef.current ? moreButtonRef.current.offsetWidth : 120; // Estimate 120px for "More" button
+
     // Account for space-x-2 between nav items (8px * (items - 1))
     const spacingBetweenItems = (navItems.length - 1) * 8;
     totalNavItemsWidth += spacingBetweenItems;
 
-    // Determine which items would overflow
+    // Determine which items would overflow - now accounting for More button
     const overflowItems = [];
+    const visibleItemsList = [];
     let runningWidth = 0;
+    let needsMore = false;
     
+    // First pass: check if everything fits
     navItems.forEach(item => {
       const itemWidth = navItemWidths[item.id] || 0;
       const itemSpacing = runningWidth > 0 ? 8 : 0; // space-x-2
       
       if (runningWidth + itemWidth + itemSpacing > availableNavSpace) {
-        overflowItems.push(item.id);
-      } else {
-        runningWidth += itemWidth + itemSpacing;
+        needsMore = true;
       }
+      runningWidth += itemWidth + itemSpacing;
     });
+
+    // Second pass: if we need More button, recalculate with its width
+    runningWidth = 0;
+    if (needsMore) {
+      const availableSpaceWithMore = availableNavSpace - moreButtonWidth - 8; // -8 for spacing before More
+      
+      navItems.forEach(item => {
+        const itemWidth = navItemWidths[item.id] || 0;
+        const itemSpacing = runningWidth > 0 ? 8 : 0; // space-x-2
+        
+        if (runningWidth + itemWidth + itemSpacing <= availableSpaceWithMore) {
+          visibleItemsList.push(item.id);
+          runningWidth += itemWidth + itemSpacing;
+        } else {
+          overflowItems.push(item.id);
+        }
+      });
+    } else {
+      // Everything fits, all items are visible
+      visibleItemsList.push(...navItems.map(item => item.id));
+    }
+
+    // Update state with visible/hidden items
+    setVisibleItems(visibleItemsList);
+    setHiddenItems(overflowItems);
 
     const newMeasurements = {
       containerWidth,
@@ -107,6 +145,10 @@ const Navigation = ({ currentView, onNavigate, user }) => {
     
     if (overflowItems.length > 0) {
       console.warn('🔄 Overflow detected! Items needing "More" dropdown:', overflowItems);
+      console.log('👁️  Visible items:', visibleItemsList);
+      console.log('📦 Hidden items (in More):', overflowItems);
+      console.log('🔽 More button width:', moreButtonWidth + 'px');
+      console.log('📐 Available space with More button:', availableNavSpace - moreButtonWidth - 8 + 'px');
     } else {
       console.log('✅ All navigation items fit comfortably');
     }
@@ -172,6 +214,24 @@ const Navigation = ({ currentView, onNavigate, user }) => {
     }
   }, [user?.name, user?.church, user?.role]);
 
+  // Effect to handle clicking outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMoreDropdown && 
+          moreButtonRef.current && 
+          !moreButtonRef.current.contains(event.target) &&
+          dropdownRef.current && 
+          !dropdownRef.current.contains(event.target)) {
+        setShowMoreDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoreDropdown]);
+
   return (
     <nav className="bg-white border-b-2 border-gray-200 sticky top-0 z-40 shadow-soft">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={containerRef}>
@@ -194,6 +254,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
+              const isVisible = visibleItems.includes(item.id);
               
               return (
                 <button
@@ -207,6 +268,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                       ? 'bg-primary-100 text-primary-700 shadow-sm' 
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     }
+                    ${!isVisible ? 'hidden' : ''}
                   `}
                 >
                   <Icon className="w-5 h-5 mr-2" />
@@ -214,6 +276,63 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                 </button>
               );
             })}
+
+            {/* More Dropdown */}
+            {hiddenItems.length > 0 && (
+              <div className="relative">
+                <button
+                  ref={moreButtonRef}
+                  onClick={() => setShowMoreDropdown(!showMoreDropdown)}
+                  className={`
+                    flex items-center px-6 py-3 min-h-[48px] rounded-lg font-medium text-base
+                    transition-all duration-200 transform hover:scale-[1.02]
+                    ${hiddenItems.includes(currentView)
+                      ? 'bg-primary-100 text-primary-700 shadow-sm' 
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  <span className="mr-2">More</span>
+                  <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${showMoreDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showMoreDropdown && (
+                  <div 
+                    ref={dropdownRef}
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                  >
+                    {navItems
+                      .filter(item => hiddenItems.includes(item.id))
+                      .map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentView === item.id;
+                        
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              onNavigate(item.id);
+                              setShowMoreDropdown(false);
+                            }}
+                            className={`
+                              w-full flex items-center px-4 py-3 min-h-[48px] text-left
+                              transition-all duration-200
+                              ${isActive 
+                                ? 'bg-primary-100 text-primary-700' 
+                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                              }
+                            `}
+                          >
+                            <Icon className="w-5 h-5 mr-3" />
+                            <span className="font-medium text-base">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Right Side - User Menu */}

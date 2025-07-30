@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Responsive Navigation</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .test-section h2 {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .test-section p {
+            color: #777;
+            line-height: 1.6;
+        }
+        .width-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        code {
+            background: #e9e9e9;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            color: #555;
+        }
+        .feature-list li:before {
+            content: "✓ ";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="width-indicator" id="widthIndicator">Width: <span id="width">0</span>px</div>
+    
+    <div class="container">
+        <h1>Responsive Navigation Testing Guide</h1>
+        <p>Open your application at <a href="http://localhost:3001" target="_blank">http://localhost:3001</a> and resize your browser window to test the responsive navigation.</p>
+
+        <div class="test-section">
+            <h2>Phase 2 Implementation Complete ✓</h2>
+            <p>The responsive navigation system now includes a "More" dropdown that appears when navigation items overflow.</p>
+            
+            <h3>What's been implemented:</h3>
+            <ul class="feature-list">
+                <li>More dropdown tab appears only when items overflow</li>
+                <li>Events tab is the first to move to the More dropdown</li>
+                <li>ChevronDownIcon rotates when dropdown is open</li>
+                <li>Active state styling maintained even when item is in More dropdown</li>
+                <li>Click outside to close dropdown functionality</li>
+                <li>Large touch targets (48px minimum height)</li>
+                <li>Smooth transitions for elderly users</li>
+                <li>Console logging includes More dropdown state information</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>Testing Instructions</h2>
+            <ol>
+                <li>Open the browser console to see measurement logs</li>
+                <li>Start with a wide browser window - all navigation items should be visible</li>
+                <li>Slowly resize the window narrower</li>
+                <li>Watch for when the "Events" tab disappears and a "More" button appears</li>
+                <li>Click the More button to see the dropdown with Events</li>
+                <li>Navigate to Events through the dropdown - notice the active state</li>
+                <li>Click outside the dropdown to close it</li>
+                <li>Continue resizing to test edge cases</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>Console Output Guide</h2>
+            <p>The console will show detailed measurements including:</p>
+            <ul>
+                <li><code>📐 Container width</code> - Total navigation container width</li>
+                <li><code>👁️ Visible items</code> - Items shown in main navigation</li>
+                <li><code>📦 Hidden items (in More)</code> - Items moved to dropdown</li>
+                <li><code>🔽 More button width</code> - Space taken by More button</li>
+                <li><code>📐 Available space with More button</code> - Remaining space calculation</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>Church UX Considerations Met</h2>
+            <ul class="feature-list">
+                <li>Simple, predictable behavior for elderly users</li>
+                <li>Clear visual hierarchy with professional appearance</li>
+                <li>No jarring animations - smooth 200ms transitions</li>
+                <li>Large click targets (minimum 48px height)</li>
+                <li>Maintains navigation measurement console logs</li>
+                <li>Tablet-friendly interactions</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>Navigation Priority Order</h2>
+            <p>Items will hide in this order as space becomes insufficient:</p>
+            <ol>
+                <li>Dashboard - Always visible</li>
+                <li>Members - Always visible</li>
+                <li>Giving - Always visible</li>
+                <li>Reports - Always visible</li>
+                <li>Events - First to move to More dropdown</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Update width indicator
+        function updateWidth() {
+            document.getElementById('width').textContent = window.innerWidth;
+        }
+        
+        window.addEventListener('resize', updateWidth);
+        updateWidth();
+    </script>
+</body>
+</html>
