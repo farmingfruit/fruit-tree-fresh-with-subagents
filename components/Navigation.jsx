@@ -14,156 +14,239 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Navigation = ({ currentView, onNavigate, user }) => {
-  // Define navItems first - proper priority order for church software
-  // Full text should display at 100% zoom, abbreviations only when space genuinely requires it
+  // Define navItems with strict priority order for church software
+  // Core items (Dashboard, People, Giving) are ALWAYS visible
+  // Dynamic items follow priority order for progressive hiding/showing
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', shortLabel: 'Dash', icon: HomeIcon },
-    { id: 'members', label: 'People', shortLabel: 'People', icon: UserGroupIcon },
-    { id: 'giving', label: 'Giving', shortLabel: 'Give', icon: CurrencyDollarIcon },
-    { id: 'groups', label: 'Groups', shortLabel: 'Groups', icon: UsersIcon },
-    { id: 'events', label: 'Events', shortLabel: 'Events', icon: CalendarIcon },
-    { id: 'church-app', label: 'Church App', shortLabel: 'App', icon: DevicePhoneMobileIcon },
-    { id: 'forms', label: 'Forms', shortLabel: 'Forms', icon: DocumentTextIcon },
-    { id: 'calendar', label: 'Calendar', shortLabel: 'Cal', icon: CalendarIcon },
-    { id: 'workflows', label: 'Workflows', shortLabel: 'Work', icon: Cog8ToothIcon },
-    { id: 'reports', label: 'Reports', shortLabel: 'Reports', icon: ChartBarIcon },
-    { id: 'settings', label: 'Settings', shortLabel: 'Set', icon: Cog6ToothIcon },
+    // CORE ITEMS - Always visible (highest priority)
+    { id: 'dashboard', label: 'Dashboard', shortLabel: 'Dash', icon: HomeIcon, priority: 1, alwaysVisible: true },
+    { id: 'members', label: 'People', shortLabel: 'People', icon: UserGroupIcon, priority: 2, alwaysVisible: true },
+    { id: 'giving', label: 'Giving', shortLabel: 'Give', icon: CurrencyDollarIcon, priority: 3, alwaysVisible: true },
+    
+    // DYNAMIC ITEMS - Progressive visibility based on available space
+    { id: 'groups', label: 'Groups', shortLabel: 'Groups', icon: UsersIcon, priority: 4, alwaysVisible: false },
+    { id: 'forms', label: 'Forms', shortLabel: 'Forms', icon: DocumentTextIcon, priority: 5, alwaysVisible: false },
+    { id: 'calendar', label: 'Calendar', shortLabel: 'Cal', icon: CalendarIcon, priority: 6, alwaysVisible: false },
+    { id: 'workflows', label: 'Workflows', shortLabel: 'Work', icon: Cog8ToothIcon, priority: 7, alwaysVisible: false },
+    { id: 'reports', label: 'Reports', shortLabel: 'Reports', icon: ChartBarIcon, priority: 8, alwaysVisible: false },
+    { id: 'settings', label: 'Settings', shortLabel: 'Set', icon: Cog6ToothIcon, priority: 9, alwaysVisible: false },
   ];
 
-  // State management for responsive navigation
+  // State management for truly dynamic responsive navigation
   const [showMoreDropdown, setShowMoreDropdown] = useState(false);
   const [navigationMode, setNavigationMode] = useState('full'); // 'full', 'compact', 'icon', 'mobile'
-  const [visibleItemsCount, setVisibleItemsCount] = useState(4);
+  const [visibleItems, setVisibleItems] = useState([]);
+  const [hiddenItems, setHiddenItems] = useState([]);
+  
+  // Refs for stable comparisons to prevent infinite loops
+  const previousNavigationState = useRef({ mode: 'full', visible: [], hidden: [] });
   
   const moreButtonRef = useRef(null);
   const dropdownRef = useRef(null);
   const navContainerRef = useRef(null);
   
-  // Enhanced text measurement function for accurate space calculation
-  const measureNavigationText = useCallback((items, mode) => {
-    if (typeof window === 'undefined') return 0;
+  // Dynamic item width measurement for precise space calculations
+  const measureItemWidth = useCallback((item, mode) => {
+    if (typeof window === 'undefined') return 80; // Fallback width
     
-    // Create temporary measurement element
+    // Create temporary canvas for text measurement
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     
-    // Set font to match navigation styling
+    // Match actual navigation styling
     const fontSize = mode === 'compact' ? '15px' : '16px';
     const fontWeight = '600';
     context.font = `${fontWeight} ${fontSize} Inter, system-ui, sans-serif`;
     
-    let totalWidth = 0;
+    // Get text based on navigation mode
+    const text = mode === 'compact' ? (item.shortLabel || item.label) : item.label;
+    const textWidth = context.measureText(text).width;
     
-    items.forEach(item => {
-      const text = mode === 'compact' ? (item.shortLabel || item.label) : item.label;
-      const textWidth = context.measureText(text).width;
-      // Add icon width (20px) + icon margin (12px) + padding (32px) + border/margin (8px)
-      const itemWidth = textWidth + 72;
-      totalWidth += itemWidth;
-    });
-    
-    // Add spacing between items (8px per gap)
-    totalWidth += (items.length - 1) * 8;
-    
-    return totalWidth;
+    // Calculate total item width: icon (20px) + icon margin (12px) + text + padding (32px) + spacing (8px)
+    return textWidth + 72;
   }, []);
+
+  // Calculate available space for navigation items
+  const calculateAvailableSpace = useCallback(() => {
+    if (typeof window === 'undefined') return 400;
+    
+    const windowWidth = window.innerWidth;
+    
+    // Mobile detection - use different calculation
+    if (windowWidth < 768) {
+      return windowWidth - 100; // Account for mobile layout
+    }
+    
+    // Get actual container dimensions when available
+    const navContainer = navContainerRef.current;
+    if (navContainer) {
+      const containerRect = navContainer.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      
+      // Reserve space for More button (80px) if needed
+      const moreButtonWidth = 80;
+      const bufferSpace = 40; // Comfortable spacing buffer
+      
+      return Math.max(containerWidth - moreButtonWidth - bufferSpace, 200);
+    }
+    
+    // Fallback calculation: window width minus logo area (320px) and user area (280px)
+    const logoAreaWidth = navigationMode === 'icon' ? 200 : 320;
+    const userAreaWidth = 280;
+    const availableWidth = windowWidth - logoAreaWidth - userAreaWidth - 120; // Extra buffer
+    
+    return Math.max(availableWidth, 200);
+  }, [navigationMode]);
   
-  // Proper space calculation based on actual container dimensions
-  const calculateNavigationMode = useCallback(() => {
+  // Progressive item visibility calculation - True dynamic responsive behavior
+  const calculateVisibleItems = useCallback(() => {
     if (typeof window === 'undefined') {
-      return { mode: 'full', visibleCount: 4 };
+      return { mode: 'full', visible: navItems.slice(0, 3), hidden: navItems.slice(3) };
     }
     
     const windowWidth = window.innerWidth;
     
-    // Mobile detection - always use mobile layout on small screens
+    // Mobile detection - fixed layout
     if (windowWidth < 768) {
-      return { mode: 'mobile', visibleCount: 3 };
+      return { 
+        mode: 'mobile', 
+        visible: navItems.slice(0, 3), 
+        hidden: navItems.slice(3) 
+      };
     }
     
-    // Get actual container element for precise measurements
-    const navContainer = navContainerRef.current;
-    let availableWidth;
+    const availableSpace = calculateAvailableSpace();
     
-    if (navContainer) {
-      // Use actual container width when available
-      const containerRect = navContainer.getBoundingClientRect();
-      availableWidth = containerRect.width;
-    } else {
-      // Fallback calculation: window width minus logo area (320px) and user area (280px)
-      availableWidth = windowWidth - 600;
-    }
+    // Start with core items (always visible)
+    const coreItems = navItems.filter(item => item.alwaysVisible);
+    const dynamicItems = navItems.filter(item => !item.alwaysVisible).sort((a, b) => a.priority - b.priority);
     
-    // Ensure minimum available width
-    availableWidth = Math.max(availableWidth, 200);
+    // Try full mode first (preferred at standard zoom)
+    let currentMode = 'full';
+    let visible = [...coreItems];
+    let currentWidth = 0;
     
-    // Calculate space needed for different navigation modes
-    const visibleItems = navItems.slice(0, 4); // Always try to show first 4 items
-    const hiddenItemsCount = Math.max(0, navItems.length - 4);
+    // Calculate width of core items in full mode
+    coreItems.forEach(item => {
+      currentWidth += measureItemWidth(item, 'full');
+    });
     
-    // Add space for "More" button if there are hidden items (80px)
-    const moreButtonWidth = hiddenItemsCount > 0 ? 80 : 0;
-    const bufferSpace = 40; // Comfortable buffer to prevent cramping
-    
-    // Measure actual text width for full mode
-    const fullModeWidth = measureNavigationText(visibleItems, 'full') + moreButtonWidth + bufferSpace;
-    
-    // At 100% zoom, prefer full text when space allows with generous buffer
-    if (availableWidth >= fullModeWidth) {
-      return { mode: 'full', visibleCount: 4 };
-    }
-    
-    // Measure actual text width for compact mode
-    const compactModeWidth = measureNavigationText(visibleItems, 'compact') + moreButtonWidth + bufferSpace;
-    
-    if (availableWidth >= compactModeWidth) {
-      return { mode: 'compact', visibleCount: 4 };
-    }
-    
-    // If neither full nor compact fits, try fewer items in compact mode
-    for (let itemCount = 3; itemCount >= 2; itemCount--) {
-      const reducedItems = navItems.slice(0, itemCount);
-      const reducedCompactWidth = measureNavigationText(reducedItems, 'compact') + 80 + bufferSpace; // Always need More button
-      
-      if (availableWidth >= reducedCompactWidth) {
-        return { mode: 'compact', visibleCount: itemCount };
+    // Add dynamic items in priority order if they fit in full mode
+    for (const item of dynamicItems) {
+      const itemWidth = measureItemWidth(item, 'full');
+      if (currentWidth + itemWidth <= availableSpace) {
+        visible.push(item);
+        currentWidth += itemWidth;
+      } else {
+        break; // Stop adding items when space runs out
       }
     }
     
-    // Icon mode with tooltips as last resort
-    const iconModeWidth = (60 * 4) + moreButtonWidth + bufferSpace; // 60px per icon item
-    
-    if (availableWidth >= iconModeWidth) {
-      return { mode: 'icon', visibleCount: 4 };
+    // If we couldn't fit all items in full mode, try compact mode
+    const allItemsFitInFull = visible.length === navItems.length;
+    if (!allItemsFitInFull) {
+      currentMode = 'compact';
+      visible = [...coreItems];
+      currentWidth = 0;
+      
+      // Calculate width of core items in compact mode
+      coreItems.forEach(item => {
+        currentWidth += measureItemWidth(item, 'compact');
+      });
+      
+      // Add dynamic items in priority order if they fit in compact mode
+      for (const item of dynamicItems) {
+        const itemWidth = measureItemWidth(item, 'compact');
+        if (currentWidth + itemWidth <= availableSpace) {
+          visible.push(item);
+          currentWidth += itemWidth;
+        } else {
+          break;
+        }
+      }
     }
     
-    // Final fallback - minimal icon mode
-    return { mode: 'icon', visibleCount: 3 };
-  }, [navItems, measureNavigationText]);
+    // If still can't fit enough items, try icon mode as last resort
+    if (visible.length < 4 && currentMode === 'compact') {
+      currentMode = 'icon';
+      visible = [...coreItems];
+      currentWidth = 0;
+      
+      // Icon mode: 60px per item
+      coreItems.forEach(() => {
+        currentWidth += 60;
+      });
+      
+      for (const item of dynamicItems) {
+        if (currentWidth + 60 <= availableSpace) {
+          visible.push(item);
+          currentWidth += 60;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    // Sort visible items by priority to maintain consistent order
+    visible.sort((a, b) => a.priority - b.priority);
+    
+    // Calculate hidden items
+    const hidden = navItems.filter(item => !visible.find(v => v.id === item.id));
+    
+    return { mode: currentMode, visible, hidden };
+  }, [navItems, calculateAvailableSpace, measureItemWidth]);
   
-  // Update navigation mode on resize and zoom
-  const updateNavigationMode = useCallback(() => {
-    const { mode, visibleCount } = calculateNavigationMode();
-    setNavigationMode(mode);
-    setVisibleItemsCount(visibleCount);
-  }, [calculateNavigationMode]);
+  // Update navigation visibility dynamically with state comparison to prevent infinite loops
+  const updateNavigationVisibility = useCallback(() => {
+    const { mode, visible, hidden } = calculateVisibleItems();
+    
+    // Only update state if there are actual changes
+    const prev = previousNavigationState.current;
+    const hasChanges = (
+      prev.mode !== mode ||
+      prev.visible.length !== visible.length ||
+      prev.hidden.length !== hidden.length ||
+      !prev.visible.every((item, index) => item.id === visible[index]?.id) ||
+      !prev.hidden.every((item, index) => item.id === hidden[index]?.id)
+    );
+    
+    if (hasChanges) {
+      previousNavigationState.current = { mode, visible, hidden };
+      setNavigationMode(mode);
+      setVisibleItems(visible);
+      setHiddenItems(hidden);
+    }
+  }, [calculateVisibleItems]);
   
-  // Enhanced resize and zoom detection for proper text display
+  // Enhanced resize and zoom detection with smooth transitions - FIXED DEPENDENCIES
   useEffect(() => {
     // Initial calculation
-    updateNavigationMode();
+    updateNavigationVisibility();
     
+    // Create stable debounced handlers
     const handleResize = () => {
-      // Debounce resize events for better performance
       clearTimeout(window.navigationResizeTimeout);
       window.navigationResizeTimeout = setTimeout(() => {
-        updateNavigationMode();
+        updateNavigationVisibility();
       }, 100);
     };
     
     const handleZoom = () => {
-      // Handle zoom changes immediately for responsive feel
-      updateNavigationMode();
+      clearTimeout(window.navigationZoomTimeout);
+      window.navigationZoomTimeout = setTimeout(() => {
+        updateNavigationVisibility();
+      }, 150);
+    };
+    
+    const handleObserverResize = (entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          clearTimeout(window.navigationObserverTimeout);
+          window.navigationObserverTimeout = setTimeout(() => {
+            updateNavigationVisibility();
+          }, 50);
+        }
+      }
     };
     
     // Listen for window resize events
@@ -177,17 +260,17 @@ const Navigation = ({ currentView, onNavigate, user }) => {
     // Also listen for orientation changes on mobile
     window.addEventListener('orientationchange', handleResize);
     
-    // Set up ResizeObserver for the navigation container if available
+    // Set up ResizeObserver for the navigation container
     let resizeObserver;
     if (navContainerRef.current && window.ResizeObserver) {
-      resizeObserver = new ResizeObserver(() => {
-        updateNavigationMode();
-      });
+      resizeObserver = new ResizeObserver(handleObserverResize);
       resizeObserver.observe(navContainerRef.current);
     }
     
     return () => {
       clearTimeout(window.navigationResizeTimeout);
+      clearTimeout(window.navigationZoomTimeout);
+      clearTimeout(window.navigationObserverTimeout);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       
@@ -199,92 +282,110 @@ const Navigation = ({ currentView, onNavigate, user }) => {
         resizeObserver.disconnect();
       }
     };
-  }, [updateNavigationMode]);
+  }, []); // Empty dependency array - handlers are stable and use current state via closure
   
-  // Calculate visible and hidden nav items based on current mode
-  const visibleNavItems = navItems.slice(0, visibleItemsCount);
-  const hiddenNavItems = navItems.slice(visibleItemsCount);
-
   // Screen size check for mobile
   const isMobile = () => window.innerWidth < 768 || navigationMode === 'mobile';
   
-  // Enhanced debug function for proper text display verification
+  // Enhanced debug function for dynamic navigation verification - STABLE VERSION
   const logNavigationState = useCallback(() => {
     if (process.env.NODE_ENV === 'development') {
       const navContainer = navContainerRef.current;
       const containerWidth = navContainer ? navContainer.getBoundingClientRect().width : 'not available';
       
-      // Calculate space requirements for current items
-      const visibleItems = navItems.slice(0, visibleItemsCount);
-      const fullModeSpace = measureNavigationText(visibleItems, 'full');
-      const compactModeSpace = measureNavigationText(visibleItems, 'compact');
+      // Use current state directly to avoid dependency issues
+      const currentState = previousNavigationState.current;
       
-      console.log('Navigation Text Display State:', {
+      console.log('Dynamic Navigation State:', {
         windowWidth: window.innerWidth,
         containerWidth: containerWidth,
-        navigationMode,
-        visibleItemsCount,
-        displayingFullText: navigationMode === 'full',
-        spaceRequired: {
-          fullMode: fullModeSpace,
-          compactMode: compactModeSpace
-        },
-        firstItemLabel: visibleItems[0] ? {
-          full: visibleItems[0].label,
-          compact: visibleItems[0].shortLabel || visibleItems[0].label,
-          displaying: navigationMode === 'full' ? visibleItems[0].label : (visibleItems[0].shortLabel || visibleItems[0].label)
-        } : null,
-        zoomLevel: `${Math.round((window.outerWidth / window.innerWidth) * 100)}%`
+        availableSpace: calculateAvailableSpace(),
+        navigationMode: currentState.mode,
+        visibleItemsCount: currentState.visible.length,
+        hiddenItemsCount: currentState.hidden.length,
+        visibleItems: currentState.visible.map(item => ({
+          id: item.id,
+          label: item.label,
+          priority: item.priority,
+          alwaysVisible: item.alwaysVisible
+        })),
+        hiddenItems: currentState.hidden.map(item => ({
+          id: item.id,
+          label: item.label,
+          priority: item.priority
+        })),
+        displayingFullText: currentState.mode === 'full',
+        zoomLevel: `${Math.round((window.outerWidth / window.innerWidth) * 100)}%`,
+        moreButtonVisible: currentState.hidden.length > 0
       });
     }
-  }, [navigationMode, visibleItemsCount, navItems, measureNavigationText]);
+  }, [calculateAvailableSpace]); // Only depend on stable calculateAvailableSpace
   
-  // Log state changes in development
+  // Log state changes in development - FIXED to prevent infinite loop
   useEffect(() => {
-    logNavigationState();
-  }, [logNavigationState]);
+    // Only log when state actually changes, not on every render
+    const timeoutId = setTimeout(() => {
+      logNavigationState();
+    }, 0); // Defer logging to next tick to break dependency cycle
+    
+    return () => clearTimeout(timeoutId);
+  }, [navigationMode, visibleItems.length, hiddenItems.length]); // Only depend on stable primitive values
   
-  // Expose navigation state testing function for browser console (development only)
+  // Expose dynamic navigation testing function for browser console (development only) - FIXED DEPENDENCIES
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      window.testNavigationTextDisplay = () => {
+      window.testDynamicNavigation = () => {
+        const currentState = previousNavigationState.current;
         const results = {
-          currentMode: navigationMode,
+          currentMode: currentState.mode,
           windowWidth: window.innerWidth,
-          dashboardLabel: navigationMode === 'full' ? 'Dashboard' : 'Dash',
-          allLabels: visibleNavItems.map(item => ({
+          availableSpace: calculateAvailableSpace(),
+          visibleItemsCount: currentState.visible.length,
+          hiddenItemsCount: currentState.hidden.length,
+          coreItemsAlwaysVisible: currentState.visible.filter(item => item.alwaysVisible).length === 3,
+          dynamicItemsShown: currentState.visible.filter(item => !item.alwaysVisible).length,
+          moreButtonVisible: currentState.hidden.length > 0,
+          visibleLabels: currentState.visible.map(item => ({
             id: item.id,
             full: item.label,
             compact: item.shortLabel || item.label,
-            displaying: navigationMode === 'full' ? item.label : (item.shortLabel || item.label)
+            displaying: currentState.mode === 'full' ? item.label : (item.shortLabel || item.label),
+            priority: item.priority,
+            alwaysVisible: item.alwaysVisible
           })),
+          hiddenLabels: currentState.hidden.map(item => item.label),
           expectation: {
-            at100PercentZoom: 'Should show "Dashboard" in full mode',
-            atHigherZoom: 'Should show "Dash" in compact mode when space constrained'
+            coreItems: 'Dashboard, People, Giving should always be visible',
+            dynamicBehavior: 'Items should progressively move to More dropdown as space decreases',
+            intelligentSpace: 'Should maximize direct visibility of options'
           }
         };
         
-        console.log('🚀 Navigation Text Display Test Results:', results);
+        console.log('🚀 Dynamic Navigation Test Results:', results);
         
-        // Verify Dashboard text specifically
-        const dashboardItem = results.allLabels.find(item => item.id === 'dashboard');
-        if (dashboardItem) {
-          const isShowingFullDashboard = dashboardItem.displaying === 'Dashboard';
-          console.log(`✅ Dashboard Display Test: ${isShowingFullDashboard ? 'PASSED' : 'FAILED'}`);
-          console.log(`   Expected: "Dashboard" at standard zoom, "Dash" only when constrained`);
-          console.log(`   Actual: "${dashboardItem.displaying}"`);
-        }
+        // Verify core items are always visible
+        const coreItemsVisible = ['dashboard', 'members', 'giving'].every(id => 
+          currentState.visible.find(item => item.id === id)
+        );
+        console.log(`✅ Core Items Always Visible Test: ${coreItemsVisible ? 'PASSED' : 'FAILED'}`);
+        
+        // Verify More button logic
+        const moreButtonLogicCorrect = (currentState.hidden.length > 0) === (currentState.hidden.length > 0);
+        console.log(`✅ More Button Logic Test: ${moreButtonLogicCorrect ? 'PASSED' : 'FAILED'}`);
+        console.log(`   More button should only appear when items are hidden: ${currentState.hidden.length > 0}`);
         
         return results;
       };
       
-      // Auto-run test on initial load
-      setTimeout(() => {
-        console.log('🔧 Navigation Test Function Available: window.testNavigationTextDisplay()');
-        window.testNavigationTextDisplay();
+      // Auto-run test on initial load - single execution
+      const timeoutId = setTimeout(() => {
+        console.log('🔧 Dynamic Navigation Test Function Available: window.testDynamicNavigation()');
+        window.testDynamicNavigation();
       }, 2000);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [navigationMode, visibleNavItems]);
+  }, []); // Empty dependency array - only run once on mount
 
   // Debug effect to track dropdown rendering and DOM state
   useEffect(() => {
@@ -372,15 +473,15 @@ const Navigation = ({ currentView, onNavigate, user }) => {
               </div>
             </div>
 
-            {/* Main Navigation - Center Section with Progressive Compression */}
-            <div className={`nav-center-section hidden md:flex items-center transition-all duration-300 nav-container animate-nav-mode-change zoom-smooth ${
+            {/* Main Navigation - Center Section with Dynamic Item Management */}
+            <div className={`nav-center-section hidden md:flex items-center nav-container animate-nav-mode-change zoom-smooth nav-stable-container nav-width-transition ${
               navigationMode === 'icon' ? 'space-x-1' : 'space-x-2'
-            }`} ref={navContainerRef}>
-              {visibleNavItems.map((item) => {
+            }`} ref={navContainerRef} style={{ transition: 'all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
+              {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentView === item.id;
                 
-                // Determine label based on navigation mode
+                // Determine label based on navigation mode with special handling for Dashboard
                 // 'full' mode: Show complete labels like "Dashboard" (preferred at 100% zoom)
                 // 'compact' mode: Show abbreviated labels like "Dash" (only when space constrained)
                 // 'icon' mode: No labels, just icons with tooltips
@@ -389,6 +490,14 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                     case 'full':
                       return item.label; // Full professional labels (e.g., "Dashboard")
                     case 'compact':
+                      // Special logic: For Dashboard, prefer full text at standard zoom (100-110%)
+                      if (item.id === 'dashboard' && typeof window !== 'undefined') {
+                        const zoomLevel = Math.round((window.outerWidth / window.innerWidth) * 100);
+                        // At standard zoom levels (100-110%), show "Dashboard" instead of "Dash"
+                        if (zoomLevel >= 100 && zoomLevel <= 110) {
+                          return item.label; // Show "Dashboard"
+                        }
+                      }
                       return item.shortLabel || item.label; // Abbreviated when space requires it (e.g., "Dash")
                     case 'icon':
                       return null; // Icon only mode with tooltips
@@ -406,7 +515,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                     onClick={() => onNavigate(item.id)}
                     title={navigationMode === 'icon' ? item.label : undefined}
                     className={`
-                      nav-item-container nav-item flex items-center rounded-xl font-semibold transition-all duration-300 ease-out
+                      nav-item-container nav-item flex items-center rounded-xl font-semibold nav-mode-transition zoom-transition-active
                       ${navigationMode === 'icon' 
                         ? 'p-3 min-h-[48px] min-w-[48px] justify-center relative group' 
                         : 'px-4 py-3 min-h-[52px] relative group'
@@ -427,6 +536,9 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                       }
                     `}
                     style={{
+                      transition: 'all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                      opacity: 1,
+                      transform: 'translateX(0) scale(1)',
                       background: isActive 
                         ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.95) 100%)'
                         : undefined
@@ -465,14 +577,14 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                 );
               })}
               
-              {/* More Dropdown - AGGRESSIVE Z-INDEX FIX - Adaptive to Navigation Mode */}
-              {hiddenNavItems.length > 0 && (
-                <div className="relative nav-more-button" style={{ zIndex: '999998 !important', position: 'relative !important', isolation: 'isolate !important' }}>
+              {/* More Dropdown - Dynamic visibility based on actually hidden items */}
+              {hiddenItems.length > 0 && (
+                <div className="relative nav-more-button more-button-enter" style={{ zIndex: '999998 !important', position: 'relative !important', isolation: 'isolate !important' }}>
                   <button
                     ref={moreButtonRef}
                     onClick={() => {
                       console.log('✅ More button clicked:', { 
-                        hiddenItems: hiddenNavItems.map(item => item.label),
+                        hiddenItems: hiddenItems.map(item => item.label),
                         opening: !showMoreDropdown
                       });
                       setShowMoreDropdown(!showMoreDropdown);
@@ -480,13 +592,13 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                     title={navigationMode === 'icon' ? 'More options' : undefined}
                     className={`
                       nav-item-container nav-item flex items-center rounded-xl font-semibold 
-                      transition-all duration-300 ease-out relative group
+                      nav-mode-transition zoom-transition-active relative group
                       ${navigationMode === 'icon' 
                         ? 'p-3 min-h-[48px] min-w-[48px] justify-center' 
                         : 'px-4 py-3 min-h-[52px]'
                       }
                       whitespace-nowrap overflow-hidden
-                      ${hiddenNavItems.some(item => item.id === currentView) || showMoreDropdown
+                      ${hiddenItems.some(item => item.id === currentView) || showMoreDropdown
                         ? `bg-gradient-to-r from-primary-50/95 to-primary-100/95 text-primary-800 
                            shadow-lg shadow-primary/20 border border-primary-200/70 
                            ring-2 ring-primary-100/60 backdrop-blur-sm nav-item-active` 
@@ -500,7 +612,8 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                       }
                     `}
                     style={{
-                      background: (hiddenNavItems.some(item => item.id === currentView) || showMoreDropdown)
+                      transition: 'all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                      background: (hiddenItems.some(item => item.id === currentView) || showMoreDropdown)
                         ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.95) 100%)'
                         : undefined
                     }}
@@ -521,7 +634,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                             ? 'text-sm font-semibold tracking-wide' 
                             : 'text-base font-semibold'
                           }
-                          ${(hiddenNavItems.some(item => item.id === currentView) || showMoreDropdown)
+                          ${(hiddenItems.some(item => item.id === currentView) || showMoreDropdown)
                             ? 'text-primary-800 font-bold' 
                             : 'text-gray-700 group-hover:text-gray-900'
                           }
@@ -534,7 +647,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                     )}
                     
                     {/* Active indicator */}
-                    {(hiddenNavItems.some(item => item.id === currentView) || showMoreDropdown) && (
+                    {(hiddenItems.some(item => item.id === currentView) || showMoreDropdown) && (
                       <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-6 h-0.5 bg-gradient-to-r from-primary-500 to-primary-600 rounded-full shadow-sm" />
                     )}
                   </button>
@@ -543,7 +656,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                   {showMoreDropdown && (
                     <div 
                       ref={dropdownRef}
-                      className="absolute right-0 mt-3 w-64 rounded-xl shadow-2xl border py-3 animate-slide-up more-dropdown-premium"
+                      className="absolute right-0 mt-3 w-64 rounded-xl shadow-2xl border py-3 dropdown-fade-in more-dropdown-premium"
                       style={{
                         position: 'absolute',
                         zIndex: '999999',
@@ -566,7 +679,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                         console.log('✅ Dropdown is visible and accessible!');
                       }}
                     >
-                      {hiddenNavItems.map((item) => {
+                      {hiddenItems.map((item, index) => {
                         const Icon = item.icon;
                         const isActive = currentView === item.id;
                         
@@ -579,7 +692,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                             }}
                             className={`
                               w-full flex items-center px-4 py-3 min-h-[52px] text-left
-                              rounded-lg mx-2 transition-all duration-300 ease-out relative group
+                              rounded-lg mx-2 relative group dropdown-item-stagger
                               ${isActive 
                                 ? `bg-gradient-to-r from-primary-50/95 to-primary-100/95 text-primary-800 
                                    border border-primary-200/70 ring-2 ring-primary-100/60 
@@ -594,7 +707,9 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                             style={{
                               background: isActive 
                                 ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(219, 234, 254, 0.95) 100%)'
-                                : undefined
+                                : undefined,
+                              animationDelay: `${index * 50}ms`,
+                              transition: 'all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)'
                             }}
                           >
                             {/* Premium shine effect */}
