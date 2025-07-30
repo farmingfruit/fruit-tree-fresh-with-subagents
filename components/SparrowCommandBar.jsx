@@ -246,7 +246,7 @@ const SparrowCommandBar = ({ currentView, onNavigate, onAction }) => {
   };
 
   return (
-    <div className="sparrow-command-bar bg-white shadow-lg border-b-2 border-gray-200 sticky top-[96px] z-40">
+    <div className="sparrow-command-bar bg-white shadow-lg border-b-2 border-gray-200 sticky top-[80px] z-40">
       {/* Main Command Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className={`relative transition-all duration-300 ${isActive ? 'scale-105' : ''}`}>

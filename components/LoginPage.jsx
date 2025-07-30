@@ -19,7 +19,7 @@ const LoginPage = ({ onDemoLogin }) => {
     onDemoLogin({
       name: 'Betty Thompson',
       role: 'Church Administrator',
-      church: 'Grace Community Church'
+      church: 'First Baptist Church of Greater Metropolitan Area'
     });
   };
 
