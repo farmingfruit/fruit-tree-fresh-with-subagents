@@ -1,0 +1,96 @@
+/* AGGRESSIVE Z-INDEX OVERRIDE FOR MORE DROPDOWN */
+/* This CSS file ensures the More dropdown appears above ALL elements including Sparrow search bar */
+
+/* Force maximum z-index for dropdown containers */
+.more-dropdown-premium,
+.portal-dropdown {
+  position: fixed !important;
+  z-index: 2147483647 !important; /* Maximum 32-bit integer */
+  background: white !important;
+  background-color: white !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(8px) !important;
+  transform: translateZ(0) !important;
+  isolation: isolate !important;
+  will-change: transform !important;
+  pointer-events: auto !important;
+}
+
+/* Override any potential conflicting styles from other components */
+.more-dropdown-premium * {
+  z-index: inherit !important;
+}
+
+/* Ensure parent navigation container doesn't interfere */
+.nav-more-button {
+  position: relative !important;
+  z-index: 999998 !important;
+  isolation: isolate !important;
+}
+
+/* Force visibility for dropdown menu items */
+.more-dropdown-premium button,
+.portal-dropdown button {
+  pointer-events: auto !important;
+  z-index: inherit !important;
+  position: relative !important;
+}
+
+/* Override any Sparrow or third-party component z-index */
+[data-component*="sparrow"] {
+  z-index: 1000 !important;
+}
+
+/* Ensure navigation stays below dropdown but above other content */
+nav[role="navigation"] {
+  z-index: 1000 !important;
+  position: sticky !important;
+  isolation: isolate !important;
+}
+
+/* Debug class to visually verify dropdown is working */
+.more-dropdown-premium::before,
+.portal-dropdown::before {
+  content: "✓ Dropdown Visible";
+  position: absolute;
+  top: -20px;
+  right: 0;
+  background: #10b981;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: inherit !important;
+  opacity: 0.8;
+}
+
+/* Ensure proper stacking context for the entire page */
+body {
+  isolation: isolate;
+}
+
+/* Override any potential CSS Grid or Flexbox z-index issues */
+.more-dropdown-premium {
+  contain: layout style paint !important;
+}
+
+/* Mobile specific overrides */
+@media (max-width: 768px) {
+  .more-dropdown-premium,
+  .portal-dropdown {
+    position: fixed !important;
+    z-index: 2147483647 !important;
+  }
+}
+
+/* High DPI / Zoom level overrides */
+@media (-webkit-min-device-pixel-ratio: 1.25) {
+  .more-dropdown-premium,
+  .portal-dropdown {
+    transform: translateZ(0) scale(1) !important;
+    will-change: transform !important;
+  }
+}

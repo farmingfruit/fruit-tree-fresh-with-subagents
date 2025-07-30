@@ -1,3 +1,6 @@
+/* AGGRESSIVE Z-INDEX OVERRIDE FOR MORE DROPDOWN */
+@import './styles/dropdown-override.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -252,7 +255,7 @@
     justify-content: center;
     flex: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible; /* CRITICAL: Allow dropdown to be visible */
     /* Prevent expansion beyond available space */
     max-width: calc(100vw - 600px); /* Account for logo and right sections */
   }

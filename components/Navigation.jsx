@@ -15,6 +15,7 @@ import {
 
 const Navigation = ({ currentView, onNavigate, user }) => {
   // Define navItems first - proper priority order for church software
+  // Full text should display at 100% zoom, abbreviations only when space genuinely requires it
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', shortLabel: 'Dash', icon: HomeIcon },
     { id: 'members', label: 'People', shortLabel: 'People', icon: UserGroupIcon },
@@ -23,8 +24,10 @@ const Navigation = ({ currentView, onNavigate, user }) => {
     { id: 'events', label: 'Events', shortLabel: 'Events', icon: CalendarIcon },
     { id: 'church-app', label: 'Church App', shortLabel: 'App', icon: DevicePhoneMobileIcon },
     { id: 'forms', label: 'Forms', shortLabel: 'Forms', icon: DocumentTextIcon },
-    { id: 'workflows', label: 'Workflows', shortLabel: 'Flow', icon: Cog8ToothIcon },
+    { id: 'calendar', label: 'Calendar', shortLabel: 'Cal', icon: CalendarIcon },
+    { id: 'workflows', label: 'Workflows', shortLabel: 'Work', icon: Cog8ToothIcon },
     { id: 'reports', label: 'Reports', shortLabel: 'Reports', icon: ChartBarIcon },
+    { id: 'settings', label: 'Settings', shortLabel: 'Set', icon: Cog6ToothIcon },
   ];
 
   // State management for responsive navigation
@@ -36,57 +39,107 @@ const Navigation = ({ currentView, onNavigate, user }) => {
   const dropdownRef = useRef(null);
   const navContainerRef = useRef(null);
   
-  // Zoom-aware responsive calculation
+  // Enhanced text measurement function for accurate space calculation
+  const measureNavigationText = useCallback((items, mode) => {
+    if (typeof window === 'undefined') return 0;
+    
+    // Create temporary measurement element
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    // Set font to match navigation styling
+    const fontSize = mode === 'compact' ? '15px' : '16px';
+    const fontWeight = '600';
+    context.font = `${fontWeight} ${fontSize} Inter, system-ui, sans-serif`;
+    
+    let totalWidth = 0;
+    
+    items.forEach(item => {
+      const text = mode === 'compact' ? (item.shortLabel || item.label) : item.label;
+      const textWidth = context.measureText(text).width;
+      // Add icon width (20px) + icon margin (12px) + padding (32px) + border/margin (8px)
+      const itemWidth = textWidth + 72;
+      totalWidth += itemWidth;
+    });
+    
+    // Add spacing between items (8px per gap)
+    totalWidth += (items.length - 1) * 8;
+    
+    return totalWidth;
+  }, []);
+  
+  // Proper space calculation based on actual container dimensions
   const calculateNavigationMode = useCallback(() => {
-    const effectiveWidth = window.innerWidth;
-    const availableNavSpace = effectiveWidth - 320 - 280; // Logo area + right side area
-    
-    // Calculate space needed for navigation items
-    const fullItemWidth = 140; // Approximate width per full navigation item
-    const compactItemWidth = 100; // Approximate width per compact item
-    const iconItemWidth = 60; // Approximate width per icon-only item
-    const moreButtonWidth = 80; // More button width
-    
-    // Determine optimal mode based on available space
-    if (effectiveWidth < 768) {
-      return { mode: 'mobile', visibleCount: 3 };
-    }
-    
-    // For zoom levels, we need to be more aggressive about switching modes
-    // Zoom makes everything appear larger, so effective space is reduced
-    const zoomFactor = Math.min(window.devicePixelRatio || 1, 2);
-    const adjustedSpace = availableNavSpace / Math.max(zoomFactor * 0.8, 1);
-    
-    // Full mode - show all text labels
-    if (adjustedSpace >= (4 * fullItemWidth + moreButtonWidth)) {
+    if (typeof window === 'undefined') {
       return { mode: 'full', visibleCount: 4 };
     }
     
-    // Compact mode - show shortened labels
-    if (adjustedSpace >= (4 * compactItemWidth + moreButtonWidth)) {
+    const windowWidth = window.innerWidth;
+    
+    // Mobile detection - always use mobile layout on small screens
+    if (windowWidth < 768) {
+      return { mode: 'mobile', visibleCount: 3 };
+    }
+    
+    // Get actual container element for precise measurements
+    const navContainer = navContainerRef.current;
+    let availableWidth;
+    
+    if (navContainer) {
+      // Use actual container width when available
+      const containerRect = navContainer.getBoundingClientRect();
+      availableWidth = containerRect.width;
+    } else {
+      // Fallback calculation: window width minus logo area (320px) and user area (280px)
+      availableWidth = windowWidth - 600;
+    }
+    
+    // Ensure minimum available width
+    availableWidth = Math.max(availableWidth, 200);
+    
+    // Calculate space needed for different navigation modes
+    const visibleItems = navItems.slice(0, 4); // Always try to show first 4 items
+    const hiddenItemsCount = Math.max(0, navItems.length - 4);
+    
+    // Add space for "More" button if there are hidden items (80px)
+    const moreButtonWidth = hiddenItemsCount > 0 ? 80 : 0;
+    const bufferSpace = 40; // Comfortable buffer to prevent cramping
+    
+    // Measure actual text width for full mode
+    const fullModeWidth = measureNavigationText(visibleItems, 'full') + moreButtonWidth + bufferSpace;
+    
+    // At 100% zoom, prefer full text when space allows with generous buffer
+    if (availableWidth >= fullModeWidth) {
+      return { mode: 'full', visibleCount: 4 };
+    }
+    
+    // Measure actual text width for compact mode
+    const compactModeWidth = measureNavigationText(visibleItems, 'compact') + moreButtonWidth + bufferSpace;
+    
+    if (availableWidth >= compactModeWidth) {
       return { mode: 'compact', visibleCount: 4 };
     }
     
-    // Icon mode - icons only with tooltips
-    if (adjustedSpace >= (4 * iconItemWidth + moreButtonWidth)) {
+    // If neither full nor compact fits, try fewer items in compact mode
+    for (let itemCount = 3; itemCount >= 2; itemCount--) {
+      const reducedItems = navItems.slice(0, itemCount);
+      const reducedCompactWidth = measureNavigationText(reducedItems, 'compact') + 80 + bufferSpace; // Always need More button
+      
+      if (availableWidth >= reducedCompactWidth) {
+        return { mode: 'compact', visibleCount: itemCount };
+      }
+    }
+    
+    // Icon mode with tooltips as last resort
+    const iconModeWidth = (60 * 4) + moreButtonWidth + bufferSpace; // 60px per icon item
+    
+    if (availableWidth >= iconModeWidth) {
       return { mode: 'icon', visibleCount: 4 };
     }
     
-    // Determine how many items we can fit
-    const maxVisibleInCompact = Math.floor((adjustedSpace - moreButtonWidth) / compactItemWidth);
-    const maxVisibleInIcon = Math.floor((adjustedSpace - moreButtonWidth) / iconItemWidth);
-    
-    if (maxVisibleInCompact >= 3) {
-      return { mode: 'compact', visibleCount: Math.min(maxVisibleInCompact, 4) };
-    }
-    
-    if (maxVisibleInIcon >= 3) {
-      return { mode: 'icon', visibleCount: Math.min(maxVisibleInIcon, 4) };
-    }
-    
-    // Last resort - mobile layout
-    return { mode: 'mobile', visibleCount: 3 };
-  }, []);
+    // Final fallback - minimal icon mode
+    return { mode: 'icon', visibleCount: 3 };
+  }, [navItems, measureNavigationText]);
   
   // Update navigation mode on resize and zoom
   const updateNavigationMode = useCallback(() => {
@@ -95,26 +148,55 @@ const Navigation = ({ currentView, onNavigate, user }) => {
     setVisibleItemsCount(visibleCount);
   }, [calculateNavigationMode]);
   
-  // Set up resize and zoom detection
+  // Enhanced resize and zoom detection for proper text display
   useEffect(() => {
+    // Initial calculation
     updateNavigationMode();
     
     const handleResize = () => {
+      // Debounce resize events for better performance
+      clearTimeout(window.navigationResizeTimeout);
+      window.navigationResizeTimeout = setTimeout(() => {
+        updateNavigationMode();
+      }, 100);
+    };
+    
+    const handleZoom = () => {
+      // Handle zoom changes immediately for responsive feel
       updateNavigationMode();
     };
     
-    // Listen for both resize and zoom events
+    // Listen for window resize events
     window.addEventListener('resize', handleResize);
     
-    // Also listen for visual viewport changes (better zoom detection)
+    // Listen for visual viewport changes (better zoom detection)
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('resize', handleZoom);
+    }
+    
+    // Also listen for orientation changes on mobile
+    window.addEventListener('orientationchange', handleResize);
+    
+    // Set up ResizeObserver for the navigation container if available
+    let resizeObserver;
+    if (navContainerRef.current && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver(() => {
+        updateNavigationMode();
+      });
+      resizeObserver.observe(navContainerRef.current);
     }
     
     return () => {
+      clearTimeout(window.navigationResizeTimeout);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('resize', handleZoom);
+      }
+      
+      if (resizeObserver) {
+        resizeObserver.disconnect();
       }
     };
   }, [updateNavigationMode]);
@@ -126,23 +208,124 @@ const Navigation = ({ currentView, onNavigate, user }) => {
   // Screen size check for mobile
   const isMobile = () => window.innerWidth < 768 || navigationMode === 'mobile';
   
-  // Debug function for zoom level testing (only in development)
+  // Enhanced debug function for proper text display verification
   const logNavigationState = useCallback(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('Navigation State:', {
+      const navContainer = navContainerRef.current;
+      const containerWidth = navContainer ? navContainer.getBoundingClientRect().width : 'not available';
+      
+      // Calculate space requirements for current items
+      const visibleItems = navItems.slice(0, visibleItemsCount);
+      const fullModeSpace = measureNavigationText(visibleItems, 'full');
+      const compactModeSpace = measureNavigationText(visibleItems, 'compact');
+      
+      console.log('Navigation Text Display State:', {
         windowWidth: window.innerWidth,
+        containerWidth: containerWidth,
         navigationMode,
         visibleItemsCount,
-        devicePixelRatio: window.devicePixelRatio || 1,
-        effectiveZoom: Math.min(window.devicePixelRatio || 1, 2)
+        displayingFullText: navigationMode === 'full',
+        spaceRequired: {
+          fullMode: fullModeSpace,
+          compactMode: compactModeSpace
+        },
+        firstItemLabel: visibleItems[0] ? {
+          full: visibleItems[0].label,
+          compact: visibleItems[0].shortLabel || visibleItems[0].label,
+          displaying: navigationMode === 'full' ? visibleItems[0].label : (visibleItems[0].shortLabel || visibleItems[0].label)
+        } : null,
+        zoomLevel: `${Math.round((window.outerWidth / window.innerWidth) * 100)}%`
       });
     }
-  }, [navigationMode, visibleItemsCount]);
+  }, [navigationMode, visibleItemsCount, navItems, measureNavigationText]);
   
   // Log state changes in development
   useEffect(() => {
     logNavigationState();
   }, [logNavigationState]);
+  
+  // Expose navigation state testing function for browser console (development only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      window.testNavigationTextDisplay = () => {
+        const results = {
+          currentMode: navigationMode,
+          windowWidth: window.innerWidth,
+          dashboardLabel: navigationMode === 'full' ? 'Dashboard' : 'Dash',
+          allLabels: visibleNavItems.map(item => ({
+            id: item.id,
+            full: item.label,
+            compact: item.shortLabel || item.label,
+            displaying: navigationMode === 'full' ? item.label : (item.shortLabel || item.label)
+          })),
+          expectation: {
+            at100PercentZoom: 'Should show "Dashboard" in full mode',
+            atHigherZoom: 'Should show "Dash" in compact mode when space constrained'
+          }
+        };
+        
+        console.log('🚀 Navigation Text Display Test Results:', results);
+        
+        // Verify Dashboard text specifically
+        const dashboardItem = results.allLabels.find(item => item.id === 'dashboard');
+        if (dashboardItem) {
+          const isShowingFullDashboard = dashboardItem.displaying === 'Dashboard';
+          console.log(`✅ Dashboard Display Test: ${isShowingFullDashboard ? 'PASSED' : 'FAILED'}`);
+          console.log(`   Expected: "Dashboard" at standard zoom, "Dash" only when constrained`);
+          console.log(`   Actual: "${dashboardItem.displaying}"`);
+        }
+        
+        return results;
+      };
+      
+      // Auto-run test on initial load
+      setTimeout(() => {
+        console.log('🔧 Navigation Test Function Available: window.testNavigationTextDisplay()');
+        window.testNavigationTextDisplay();
+      }, 2000);
+    }
+  }, [navigationMode, visibleNavItems]);
+
+  // Debug effect to track dropdown rendering and DOM state
+  useEffect(() => {
+    if (showMoreDropdown) {
+      console.log('🚀 DROPDOWN SHOULD BE VISIBLE NOW');
+      console.log('🔍 Dropdown ref:', dropdownRef.current);
+      
+      if (dropdownRef.current) {
+        const rect = dropdownRef.current.getBoundingClientRect();
+        console.log('📐 Dropdown position:', {
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+          visible: rect.width > 0 && rect.height > 0
+        });
+        
+        const styles = getComputedStyle(dropdownRef.current);
+        console.log('🎨 Dropdown computed styles:', {
+          display: styles.display,
+          visibility: styles.visibility,
+          opacity: styles.opacity,
+          zIndex: styles.zIndex,
+          position: styles.position,
+          top: styles.top,
+          right: styles.right,
+          backgroundColor: styles.backgroundColor,
+          transform: styles.transform
+        });
+        
+        console.log('📋 Dropdown innerHTML length:', dropdownRef.current.innerHTML.length);
+        console.log('👆 Dropdown children count:', dropdownRef.current.children.length);
+      } else {
+        console.log('❌ Dropdown ref is null - element not in DOM!');
+      }
+    } else {
+      console.log('📴 Dropdown should be hidden');
+    }
+  }, [showMoreDropdown]);
 
   // Effect to handle clicking outside dropdown
   useEffect(() => {
@@ -152,6 +335,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
           !moreButtonRef.current.contains(event.target) &&
           dropdownRef.current && 
           !dropdownRef.current.contains(event.target)) {
+        console.log('👆 Clicking outside dropdown, closing');
         setShowMoreDropdown(false);
       }
     };
@@ -168,7 +352,7 @@ const Navigation = ({ currentView, onNavigate, user }) => {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <nav className={`nav-professional sticky top-0 z-50 max-w-full overflow-hidden zoom-aware-nav nav-mode-${navigationMode} animate-zoom-transition zoom-smooth zoom-maintain-quality`} role="navigation" aria-label="Main navigation">
+      <nav className={`nav-professional sticky top-0 max-w-full overflow-visible zoom-aware-nav nav-mode-${navigationMode} animate-zoom-transition zoom-smooth zoom-maintain-quality`} role="navigation" aria-label="Main navigation" style={{ zIndex: '1000', position: 'sticky', isolation: 'isolate' }}>
         <div className="w-full mx-auto px-4 lg:px-8 max-w-full">
           <div className="nav-main-container h-20">
             {/* Logo and Church Name - Enhanced Premium Left Section */}
@@ -197,16 +381,19 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                 const isActive = currentView === item.id;
                 
                 // Determine label based on navigation mode
+                // 'full' mode: Show complete labels like "Dashboard" (preferred at 100% zoom)
+                // 'compact' mode: Show abbreviated labels like "Dash" (only when space constrained)
+                // 'icon' mode: No labels, just icons with tooltips
                 const getLabel = () => {
                   switch (navigationMode) {
                     case 'full':
-                      return item.label;
+                      return item.label; // Full professional labels (e.g., "Dashboard")
                     case 'compact':
-                      return item.shortLabel || item.label;
+                      return item.shortLabel || item.label; // Abbreviated when space requires it (e.g., "Dash")
                     case 'icon':
-                      return null; // Icon only
+                      return null; // Icon only mode with tooltips
                     default:
-                      return item.label;
+                      return item.label; // Default to full labels
                   }
                 };
                 
@@ -278,12 +465,18 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                 );
               })}
               
-              {/* More Dropdown - Adaptive to Navigation Mode */}
+              {/* More Dropdown - AGGRESSIVE Z-INDEX FIX - Adaptive to Navigation Mode */}
               {hiddenNavItems.length > 0 && (
-                <div className="relative nav-more-button">
+                <div className="relative nav-more-button" style={{ zIndex: '999998 !important', position: 'relative !important', isolation: 'isolate !important' }}>
                   <button
                     ref={moreButtonRef}
-                    onClick={() => setShowMoreDropdown(!showMoreDropdown)}
+                    onClick={() => {
+                      console.log('✅ More button clicked:', { 
+                        hiddenItems: hiddenNavItems.map(item => item.label),
+                        opening: !showMoreDropdown
+                      });
+                      setShowMoreDropdown(!showMoreDropdown);
+                    }}
                     title={navigationMode === 'icon' ? 'More options' : undefined}
                     className={`
                       nav-item-container nav-item flex items-center rounded-xl font-semibold 
@@ -350,15 +543,27 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                   {showMoreDropdown && (
                     <div 
                       ref={dropdownRef}
-                      className="absolute right-0 mt-3 w-64 bg-white/98 rounded-xl shadow-2xl border border-gray-100/80 py-3 z-[9999] animate-slide-up backdrop-blur-lg ring-1 ring-black/10 more-dropdown-premium"
+                      className="absolute right-0 mt-3 w-64 rounded-xl shadow-2xl border py-3 animate-slide-up more-dropdown-premium"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%)',
+                        position: 'absolute',
+                        zIndex: '999999',
+                        background: 'white',
+                        backgroundColor: 'white',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
                         boxShadow: `
+                          0 25px 50px -12px rgba(0, 0, 0, 0.25),
                           0 20px 25px -5px rgba(0, 0, 0, 0.1),
                           0 10px 10px -5px rgba(0, 0, 0, 0.04),
                           0 0 0 1px rgba(0, 0, 0, 0.05),
                           inset 0 1px 0 rgba(255, 255, 255, 0.9)
-                        `
+                        `,
+                        backdropFilter: 'blur(8px)',
+                        transform: 'translateZ(0)',
+                        isolation: 'isolate',
+                        willChange: 'transform'
+                      }}
+                      onMouseEnter={() => {
+                        console.log('✅ Dropdown is visible and accessible!');
                       }}
                     >
                       {hiddenNavItems.map((item) => {
@@ -479,7 +684,13 @@ const Navigation = ({ currentView, onNavigate, user }) => {
               {/* Mobile More Button */}
               <div className="relative">
                 <button
-                  onClick={() => setShowMoreDropdown(!showMoreDropdown)}
+                  onClick={() => {
+                    console.log('📱 Mobile More button clicked:', { 
+                      showMoreDropdown, 
+                      hiddenItems: navItems.slice(3).map(item => item.label)
+                    });
+                    setShowMoreDropdown(!showMoreDropdown);
+                  }}
                   className={`
                     flex flex-col items-center py-2.5 px-1.5 min-h-[56px] min-w-[72px] max-w-[88px] rounded-xl nav-item-responsive group flex-shrink-0 transition-all duration-200 relative overflow-hidden
                     ${navItems.slice(3).some(item => item.id === currentView) || showMoreDropdown
@@ -492,9 +703,22 @@ const Navigation = ({ currentView, onNavigate, user }) => {
                   <span className="text-xs font-semibold text-center truncate w-full leading-tight">More</span>
                 </button>
                 
-                {/* Mobile Dropdown - Higher z-index */}
+                {/* Mobile Dropdown - AGGRESSIVE Z-INDEX FIX */}
                 {showMoreDropdown && (
-                  <div className="absolute right-0 bottom-full mb-3 w-56 bg-white/96 rounded-xl shadow-large border border-gray-100/60 py-3 z-[9999] animate-slide-up backdrop-blur-md ring-1 ring-black/5 more-dropdown-premium">
+                  <div 
+                    className="absolute right-0 bottom-full mb-3 w-56 rounded-xl shadow-large border py-3 animate-slide-up more-dropdown-premium"
+                    style={{
+                      position: 'absolute !important',
+                      zIndex: '999999 !important',
+                      background: 'white !important',
+                      backgroundColor: 'white !important',
+                      border: '1px solid rgba(0, 0, 0, 0.1) !important',
+                      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25) !important',
+                      backdropFilter: 'blur(8px) !important',
+                      transform: 'translateZ(0) !important',
+                      isolation: 'isolate !important'
+                    }}
+                  >
                     {navItems.slice(3).map((item) => {
                       const Icon = item.icon;
                       const isActive = currentView === item.id;
